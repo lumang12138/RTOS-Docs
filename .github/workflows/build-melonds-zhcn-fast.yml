@@ -59,7 +59,7 @@ jobs:
             -DUSE_VCPKG=OFF \
             -DUSE_QT6=ON \
             -DPORTABLE=ON \
-            -DMELONDS_EMBED_BUILD_INFO=ON \
+            -DMELONDS_EMBED_BUILD_INFO=OFF \
             -DMELONDS_VERSION_SUFFIX=" zh-CN" \
             -DCMAKE_PREFIX_PATH="/ucrt64/qt6-static"
 
