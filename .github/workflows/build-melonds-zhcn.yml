@@ -39,6 +39,7 @@ jobs:
       - name: Apply Simplified Chinese localization
         run: |
           python tools/melonds_zhcn/patch_melonds_zhcn.py melonDS
+          python tools/melonds_zhcn/patch_direct_strings.py melonDS
 
       - name: Restore vcpkg cache
         uses: actions/cache/restore@v4
@@ -63,12 +64,25 @@ jobs:
           cd melonDS
           cmake --build --preset=release-mingw-x86_64
 
+      - name: Verify Chinese strings in executable
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          exe = Path('melonDS/build/release-mingw-x86_64/melonDS.exe').read_bytes()
+          required = ['打开 ROM', '金手指设置', '视频设置', '系统', '配置']
+          missing = [s for s in required if s.encode('utf-8') not in exe]
+          if missing:
+              raise SystemExit('Missing compiled zh-CN markers: ' + ', '.join(missing))
+          print('Verified compiled Simplified Chinese UI markers.')
+          PY
+
       - name: Stage distributable files
         run: |
           mkdir -p dist
           cp melonDS/build/release-mingw-x86_64/melonDS.exe dist/melonDS-1.1-zh_CN.exe
           cp melonDS/LICENSE dist/LICENSE-melonDS.txt
           cp tools/melonds_zhcn/patch_melonds_zhcn.py dist/patch_melonds_zhcn.py
+          cp tools/melonds_zhcn/patch_direct_strings.py dist/patch_direct_strings.py
           cat > dist/README-zh_CN.txt <<'EOF'
           melonDS 1.1 简体中文 Windows x64 构建
 
@@ -80,7 +94,7 @@ jobs:
           本构建未包含任何游戏 ROM、BIOS 或固件文件。
 
           melonDS 依据 GNU GPL v3 或更高版本授权。
-          附带 patch_melonds_zhcn.py 以公开本中文构建相对官方 1.1 的源码修改。
+          附带两个 patch_*.py 文件，以公开本中文构建相对官方 1.1 的源码修改。
           EOF
 
       - name: Upload Windows x64 build
