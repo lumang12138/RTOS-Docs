@@ -37,7 +37,18 @@ jobs:
             mingw-w64-ucrt-x86_64-libarchive \
             mingw-w64-ucrt-x86_64-zstd \
             mingw-w64-ucrt-x86_64-enet \
-            mingw-w64-ucrt-x86_64-faad2
+            mingw-w64-ucrt-x86_64-faad2 \
+            mingw-w64-ucrt-x86_64-brotli \
+            mingw-w64-ucrt-x86_64-dbus \
+            mingw-w64-ucrt-x86_64-freetype \
+            mingw-w64-ucrt-x86_64-libjpeg-turbo \
+            mingw-w64-ucrt-x86_64-libpng \
+            mingw-w64-ucrt-x86_64-libtiff \
+            mingw-w64-ucrt-x86_64-libwebp \
+            mingw-w64-ucrt-x86_64-openssl \
+            mingw-w64-ucrt-x86_64-pcre2 \
+            mingw-w64-ucrt-x86_64-vulkan-headers \
+            mingw-w64-ucrt-x86_64-zlib
 
       - name: Fetch official melonDS 1.1 source
         run: |
