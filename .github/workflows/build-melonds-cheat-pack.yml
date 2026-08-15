@@ -1,0 +1,82 @@
+name: Build melonDS 1.1 Cheat Pack
+
+on:
+  push:
+    branches:
+      - ci/melonds-cheat-pack
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download NDS usrcheat database
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          curl -L --fail --retry 3 \
+            'https://raw.githubusercontent.com/murmury/nds-i-cheat-databases/main/Cheat%20Databases/usrcheat.dat' \
+            -o dist/usrcheat.dat
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('dist/usrcheat.dat')
+          b=p.read_bytes()
+          if len(b) < 10_000_000:
+              raise SystemExit(f'usrcheat.dat unexpectedly small: {len(b)} bytes')
+          print('usrcheat.dat size:', len(b))
+          print('header:', b[:16])
+          PY
+          sha256sum dist/usrcheat.dat | tee dist/usrcheat.dat.sha256.txt
+
+      - name: Add Simplified Chinese instructions
+        shell: bash
+        run: |
+          cat > dist/README_金手指使用说明.txt <<'EOF'
+          melonDS 1.1 简体中文版 —— NDS 金手指数据库包
+
+          文件：usrcheat.dat
+          用途：供 melonDS 1.1 的“导入金手指数据库”功能使用。
+          数据来源：DeadSkullzJr NDS(i) Cheat Databases 的公开镜像。
+
+          【推荐使用方法】
+          1. 先启动 melonDS，并打开你要玩的 .nds ROM。
+          2. 在“系统”菜单中勾选“启用金手指”。
+          3. 打开“系统 → 金手指设置”。
+          4. 点击“导入金手指/导入数据库”，选择本目录中的 usrcheat.dat。
+          5. melonDS 1.1 会根据当前 ROM 的 Game Code 和 CRC 显示匹配条目。
+          6. 优先选择与当前 ROM 校验值完全匹配的条目，再勾选需要导入的代码。
+          7. 导入后，在金手指列表中只启用你真正需要的项目，然后确定。
+          8. 如果代码说明要求按 L、R、Select、方向键等组合键，需要在游戏中按对应按键触发。
+
+          【如果显示“没有匹配条目”】
+          - 最常见原因是 ROM 区域、Rev 版本或 CRC 与数据库条目不同。
+          - 汉化版、修改版、ROM Hack 会改变 CRC，因此原版金手指数据库可能无法自动匹配。
+          - 同名游戏的 USA / Europe / Japan / Rev 1 等版本不能默认视为通用。
+
+          【使用建议】
+          - 开金手指前先备份 .sav 存档。
+          - 不建议一次开启大量代码。
+          - “全道具”“剧情标志”“任务完成”“即时传送”等代码可能破坏正常流程或存档状态。
+          - 同一分类中互斥的代码不要同时开启。
+          - 如果游戏黑屏、死机或存档异常，先关闭全部金手指再测试。
+
+          说明：本包不包含任何游戏 ROM、BIOS 或固件。
+          EOF
+
+          cat > dist/README_数据库说明.txt <<'EOF'
+          usrcheat.dat 是 R4 系列常用的 NDS Action Replay 金手指数据库格式。
+
+          melonDS 1.1 已加入原生金手指数据库导入支持：加载游戏后导入 usrcheat.dat，
+          模拟器会显示与当前游戏匹配的数据库条目，并允许选择需要导入的代码。
+
+          数据库匹配依赖 ROM 的 Game Code/CRC，因此不同地区、修订版、汉化版或 ROM Hack
+          可能需要专门的条目或单独的 .mch 文件。
+          EOF
+
+      - name: Upload cheat pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-1.1-zh_CN-cheat-pack
+          path: dist/
+          if-no-files-found: error
