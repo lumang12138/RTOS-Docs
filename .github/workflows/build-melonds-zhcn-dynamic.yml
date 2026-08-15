@@ -1,0 +1,108 @@
+name: Build melonDS 1.1 zh-CN dynamic
+
+on:
+  push:
+    branches:
+      - ci/melonds-zhcn-dynamic
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Check out localization files
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/melonds_zhcn
+          sparse-checkout-cone-mode: false
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ucrt64
+          update: true
+          pacboy: git:p gcc:p cmake:p ninja:p make:p python:p pkgconf:p
+
+      - name: Install dynamic dependencies
+        run: |
+          pacman -S --noconfirm --needed \
+            mingw-w64-ucrt-x86_64-qt6-base \
+            mingw-w64-ucrt-x86_64-SDL2 \
+            mingw-w64-ucrt-x86_64-libarchive \
+            mingw-w64-ucrt-x86_64-zstd \
+            mingw-w64-ucrt-x86_64-enet \
+            mingw-w64-ucrt-x86_64-faad2
+
+      - name: Fetch official melonDS 1.1 source
+        run: |
+          git clone --branch 1.1 --depth 1 --recurse-submodules https://github.com/melonDS-emu/melonDS.git melonDS
+
+      - name: Apply Simplified Chinese localization
+        run: |
+          python tools/melonds_zhcn/patch_melonds_zhcn.py melonDS
+          python tools/melonds_zhcn/patch_direct_strings.py melonDS
+
+      - name: Configure and build
+        run: |
+          cd melonDS
+          cmake -S . -B build/zhcn-dynamic -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_STATIC=OFF \
+            -DUSE_VCPKG=OFF \
+            -DUSE_QT6=ON \
+            -DPORTABLE=ON \
+            -DMELONDS_EMBED_BUILD_INFO=OFF \
+            -DMELONDS_VERSION_SUFFIX=" zh-CN"
+          cmake --build build/zhcn-dynamic
+
+      - name: Stage runtime
+        run: |
+          mkdir -p dist
+          cp melonDS/build/zhcn-dynamic/melonDS.exe dist/melonDS-1.1-zh_CN.exe
+          DEPLOY="$(command -v windeployqt6 || command -v windeployqt || true)"
+          if [ -n "$DEPLOY" ]; then
+            "$DEPLOY" --release --no-translations dist/melonDS-1.1-zh_CN.exe || true
+          fi
+          for pass in 1 2 3 4; do
+            while IFS= read -r -d '' f; do
+              ldd "$f" 2>/dev/null | awk '/\/ucrt64\/bin\// {print $3}' | while read -r dep; do
+                [ -f "$dep" ] && cp -n "$dep" dist/ || true
+              done
+            done < <(find dist -type f \( -iname '*.exe' -o -iname '*.dll' \) -print0)
+          done
+          cp melonDS/LICENSE dist/LICENSE-melonDS.txt
+          cp tools/melonds_zhcn/patch_melonds_zhcn.py dist/patch_melonds_zhcn.py
+          cp tools/melonds_zhcn/patch_direct_strings.py dist/patch_direct_strings.py
+          cat > dist/README-zh_CN.txt <<'EOF'
+          melonDS 1.1 简体中文 Windows x64 可运行包
+          基线：melonDS 官方 1.1
+          此动态构建需保持 EXE 与随包 DLL/插件在同一目录结构中。
+          未包含任何游戏 ROM、BIOS 或固件。
+          EOF
+
+      - name: Verify PE and Chinese markers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('dist/melonDS-1.1-zh_CN.exe')
+          b=p.read_bytes()
+          assert b[:2] == b'MZ'
+          for s in ['打开 ROM','金手指设置','视频设置','系统','配置']:
+              assert s.encode('utf-8') in b, s
+          print('PE and Chinese markers verified; size=', p.stat().st_size)
+          PY
+          echo 'Runtime dependencies:'
+          ldd dist/melonDS-1.1-zh_CN.exe || true
+
+      - name: Upload runnable Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-1.1-zh_CN-windows-x86_64-dynamic
+          path: dist/
+          if-no-files-found: error
