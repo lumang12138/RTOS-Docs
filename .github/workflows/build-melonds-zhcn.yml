@@ -57,7 +57,7 @@ jobs:
       - name: Configure melonDS
         run: |
           cd melonDS
-          cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DMELONDS_VERSION_SUFFIX=" zh-CN"
+          cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=OFF -DMELONDS_VERSION_SUFFIX=" zh-CN"
 
       - name: Build melonDS
         run: |
@@ -69,7 +69,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           exe = Path('melonDS/build/release-mingw-x86_64/melonDS.exe').read_bytes()
-          required = ['打开 ROM', '金手指设置', '视频设置', '系统', '配置']
+          required = ['打开 ROM', '金手指设置', '视频设置', '系统', '配置', '导入金手指']
           missing = [s for s in required if s.encode('utf-8') not in exe]
           if missing:
               raise SystemExit('Missing compiled zh-CN markers: ' + ', '.join(missing))
