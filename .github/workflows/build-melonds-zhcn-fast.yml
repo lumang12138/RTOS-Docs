@@ -22,25 +22,22 @@ jobs:
             tools/melonds_zhcn
           sparse-checkout-cone-mode: false
 
-      - name: Set up MSYS2 UCRT64 with prebuilt static dependencies
+      - name: Set up MSYS2 UCRT64
         uses: msys2/setup-msys2@v2
         with:
           msystem: ucrt64
           update: true
-          pacboy: >-
-            git:p
-            gcc:p
-            cmake:p
-            ninja:p
-            make:p
-            python:p
-            pkgconf:p
-            qt6-static:p
-            sdl2:p
-            libarchive:p
-            zstd:p
-            enet:p
-            faad2:p
+          pacboy: git:p gcc:p cmake:p ninja:p make:p python:p pkgconf:p
+
+      - name: Install prebuilt static dependencies
+        run: |
+          pacman -S --noconfirm --needed \
+            mingw-w64-ucrt-x86_64-qt6-static \
+            mingw-w64-ucrt-x86_64-SDL2 \
+            mingw-w64-ucrt-x86_64-libarchive \
+            mingw-w64-ucrt-x86_64-zstd \
+            mingw-w64-ucrt-x86_64-enet \
+            mingw-w64-ucrt-x86_64-faad2
 
       - name: Fetch official melonDS 1.1 source
         run: |
