@@ -1,0 +1,114 @@
+name: Build melonDS 1.1 zh-CN fast
+
+on:
+  push:
+    branches:
+      - ci/melonds-zhcn-fast
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Check out localization build files
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/melonds_zhcn
+          sparse-checkout-cone-mode: false
+
+      - name: Set up MSYS2 UCRT64 with prebuilt static dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ucrt64
+          update: true
+          pacboy: >-
+            git:p
+            gcc:p
+            cmake:p
+            ninja:p
+            make:p
+            python:p
+            pkgconf:p
+            qt6-static:p
+            sdl2:p
+            libarchive:p
+            zstd:p
+            enet:p
+            faad2:p
+
+      - name: Fetch official melonDS 1.1 source
+        run: |
+          git clone --branch 1.1 --depth 1 --recurse-submodules https://github.com/melonDS-emu/melonDS.git melonDS
+
+      - name: Apply Simplified Chinese localization
+        run: |
+          python tools/melonds_zhcn/patch_melonds_zhcn.py melonDS
+          python tools/melonds_zhcn/patch_direct_strings.py melonDS
+
+      - name: Configure static Windows x64 build
+        run: |
+          cd melonDS
+          export CMAKE_PREFIX_PATH="/ucrt64/qt6-static"
+          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig"
+          cmake -S . -B build/zhcn-fast -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_STATIC=ON \
+            -DUSE_VCPKG=OFF \
+            -DUSE_QT6=ON \
+            -DPORTABLE=ON \
+            -DMELONDS_EMBED_BUILD_INFO=ON \
+            -DMELONDS_VERSION_SUFFIX=" zh-CN" \
+            -DCMAKE_PREFIX_PATH="/ucrt64/qt6-static"
+
+      - name: Build melonDS
+        run: |
+          cd melonDS
+          cmake --build build/zhcn-fast
+
+      - name: Verify standalone PE and Chinese UI strings
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          exe_path = Path('melonDS/build/zhcn-fast/melonDS.exe')
+          exe = exe_path.read_bytes()
+          if not exe.startswith(b'MZ'):
+              raise SystemExit('Output is not a Windows PE executable')
+          required = ['打开 ROM', '金手指设置', '视频设置', '系统', '配置', '导入金手指']
+          missing = [s for s in required if s.encode('utf-8') not in exe]
+          if missing:
+              raise SystemExit('Missing compiled zh-CN markers: ' + ', '.join(missing))
+          print('Verified Windows PE and compiled Simplified Chinese UI markers.')
+          PY
+
+      - name: Stage distributable files
+        run: |
+          mkdir -p dist
+          cp melonDS/build/zhcn-fast/melonDS.exe dist/melonDS-1.1-zh_CN.exe
+          cp melonDS/LICENSE dist/LICENSE-melonDS.txt
+          cp tools/melonds_zhcn/patch_melonds_zhcn.py dist/patch_melonds_zhcn.py
+          cp tools/melonds_zhcn/patch_direct_strings.py dist/patch_direct_strings.py
+          cat > dist/README-zh_CN.txt <<'EOF'
+          melonDS 1.1 简体中文 Windows x64 构建
+
+          基线：melonDS 官方 1.1 标签
+          平台：Windows x64 / MSYS2 UCRT64 / Qt 6 static
+          汉化范围：主菜单、ROM/存档、金手指、输入、视频、音频、相机、固件、网络、界面设置及常见提示。
+          保留术语：ROM、BIOS、Firmware、JIT、OpenGL、DSi、Action Replay 等。
+
+          本构建未包含任何游戏 ROM、BIOS 或固件文件。
+          melonDS 依据 GNU GPL v3 或更高版本授权。
+          附带 patch_*.py，以公开本中文构建相对官方 1.1 的源码修改。
+          EOF
+
+      - name: Upload Windows x64 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-1.1-zh_CN-windows-x86_64-fast
+          path: dist/
+          if-no-files-found: error
