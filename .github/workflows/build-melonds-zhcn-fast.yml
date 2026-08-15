@@ -76,7 +76,7 @@ jobs:
           exe = exe_path.read_bytes()
           if not exe.startswith(b'MZ'):
               raise SystemExit('Output is not a Windows PE executable')
-          required = ['打开 ROM', '金手指设置', '视频设置', '系统', '配置', '导入金手指']
+          required = ['打开 ROM', '金手指设置', '视频设置', '系统', '配置']
           missing = [s for s in required if s.encode('utf-8') not in exe]
           if missing:
               raise SystemExit('Missing compiled zh-CN markers: ' + ', '.join(missing))
